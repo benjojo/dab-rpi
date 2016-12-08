@@ -174,20 +174,30 @@ int	k;
 	        combo_gain -> addItem (QString::number (gains [i - 1]));
 	}
 
-	rtlsdr_set_tuner_gain_mode (device, 1);
-	rtlsdr_set_tuner_gain (device, gains [gainsCount / 2]);
+	   fprintf (stderr, "Hard ensuring that Auto gain is OFF");
+
+	rtlsdr_set_tuner_gain_mode (device, 0);
+	// rtlsdr_set_tuner_gain (device, gains [(gainsCount / 2)-4]);
 
 	_I_Buffer		= new RingBuffer<uint8_t>(1024 * 1024);
 	dabstickSettings	-> beginGroup ("dabstickSettings");
 	temp = dabstickSettings -> value ("externalGain", "10"). toString ();
+		// fprintf (stderr, "DAB SEttings %s\n", temp.data() );
+
 	k	= combo_gain -> findText (temp);
+			// fprintf (stderr, "DAB SEttings2 %d\n", k );
+			// fprintf (stderr, "DAB SEttings2 %s\n", combo_gain );
+
 	if (k != -1) {
+					fprintf (stderr, "OOoh!\n" );
+
 	   combo_gain	-> setCurrentIndex (k);
 	   rtlsdr_set_tuner_gain (device, temp. toInt ());
+	   fprintf (stderr, "Set SDR gain to %d\n", temp. toInt () );
 	}
 
-	temp	= dabstickSettings -> value ("autogain", "autogain off"). toString ();
-	rtlsdr_set_tuner_gain_mode (device, temp == "autogain off" ? 0 : 1);
+	// temp	= dabstickSettings -> value ("autogain", "autogain off"). toString ();
+	// rtlsdr_set_tuner_gain_mode (device, temp == "autogain off" ? 0 : 1);
 	
 	f_correction -> setValue (dabstickSettings -> value ("f_correction", 0). toInt ());
 	KhzOffset	-> setValue (dabstickSettings -> value ("KhzOffset", 0). toInt ());

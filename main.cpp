@@ -101,7 +101,7 @@ QString		dabBand		= QString ("");
 	      case 'S':
 	         syncMethod	= atoi (optarg);
 	         break;
-#ifdef GUI_3
+// #ifdef GUI_3
 	      case 'D':
 	         dabDevice = optarg;
 	         break;
@@ -115,26 +115,29 @@ QString		dabBand		= QString ("");
 	      case 'B':
 	         dabBand 	= optarg;
 	         break;
-#endif
+// #endif
 	      default:
 	         break;
 	   }
 	}
 	dabSettings =  new QSettings (defaultInit, QSettings::IniFormat);
 
-#ifdef	GUI_3
+// #ifdef	GUI_3
 //	Since we do not have the possibility in GUI_3 to select
 //	Mode, Band or Device, we create the possibility for
 //	passing appropriate parameters to the command
 //	Selections - if any - will be default for the next session
 
-	if (dabMode == 127)
-	   dabMode = dabSettings -> value ("dabMode", 1). toInt ();
-	if (dabDevice == QString (""))
-	   dabDevice = dabSettings -> value ("dabDevice", "dabstick"). toString ();
-	if (dabBand == QString (""))
-	   dabBand = dabSettings -> value ("band", "BAND III"). toString ();
-#endif 
+	// if (dabMode == 127)
+	//    dabMode = dabSettings -> value ("dabMode", 1). toInt ();
+	// if (dabDevice == QString (""))
+	//    dabDevice = dabSettings -> value ("dabDevice", "dabstick"). toString ();
+	// if (dabBand == QString (""))
+	//    dabBand = dabSettings -> value ("band", "BAND III"). toString ();
+
+	dabSettings -> setValue ("autoStart",    1);
+
+// #endif 
 /*
  *	Before we connect control to the gui, we have to
  *	instantiate

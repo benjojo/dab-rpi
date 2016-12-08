@@ -29,12 +29,12 @@ list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake/Modules)
 	set(NO_SSE_SUPPORT true)
 
 #	select the GUI you want
-	set(GUI_1 true)
-#	set(GUI_2 true)
+#	set(GUI_1 true)
+	set(GUI_2 true)
 
 #	if you want support for any of these devices, uncomment the line
-	set(SDRPLAY true)
-	set(AIRSPY true)
+#	set(SDRPLAY true)
+#	set(AIRSPY true)
 	set(DABSTICK_OSMO true)
 #	set(RTLTCP true)
 

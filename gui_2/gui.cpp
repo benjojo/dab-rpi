@@ -559,6 +559,31 @@ void	RadioInterface::clearEnsemble	(void) {
 //
 //	a slot, called by the fic/fib handlers
 void	RadioInterface::addtoEnsemble (const QString &s) {
+	// ben edit, Look for the locking channel and see if that was the one just added
+
+	if (running) {
+		fprintf (stderr, "[AUTOTUNE] New station added, and I'm not playing yet %s\n", s. toLatin1 (). data ());
+		QString temp;
+		temp = dabSettings -> value ("autostartservice", "BBC Radio 1     "). toString ();
+		// my_ficHandler -> kindofService (a);
+		fprintf (stderr, "[AUTOTUNE] '%s' vs '%s'\n", s. toLatin1 (). data (), temp. toLatin1 (). data ());
+		// if(s.data() == temp.data()) {
+		if(s.endsWith(temp)) {
+			switch (my_ficHandler -> kindofService (temp)) {
+			case AUDIO_SERVICE:
+				{ audiodata d;
+					my_ficHandler	-> dataforAudioService (temp, &d);
+					my_mscHandler	-> set_audioChannel (&d);
+					// showLabel (QString (" "));
+					rateDisplay -> display (d. bitRate);
+					fprintf (stderr, "[AUTOTUNE] starting up %s\n", temp. toLatin1 (). data ());
+					break;
+				}
+			}
+		}
+	}
+
+
 	Services << s;
 	Services. removeDuplicates ();
 	ensemble. setStringList (Services);
@@ -599,6 +624,7 @@ void	RadioInterface::show_ficCRC (bool b) {
 ///	called from the ofdmDecoder, which computed this for each frame
 void	RadioInterface::show_snr (int s) {
 	snrDisplay	-> display (s);
+	fprintf (stdout, "[metrics] SNR=%d\n", s);
 }
 
 ///	just switch a color, obviously GUI dependent, but called
@@ -960,7 +986,7 @@ fprintf (stderr, "inputDevice deleted\n");
 #endif
 #ifdef	HAVE_DABSTICK
 	if (s == "dabstick") {
-	   inputDevice	= new dabStick (dabSettings, &success);
+	   inputDevice	= new dabStick (dabSettings, &success,false);
 	   if (!success) {
 	      delete inputDevice;
 	      QMessageBox::warning (this, tr ("sdr"),
@@ -1024,6 +1050,7 @@ fprintf (stderr, "inputDevice deleted\n");
 //	info on the service (i.e. rate, address, etc)
 void	RadioInterface::selectService (QModelIndex s) {
 QString a = ensemble. data (s, Qt::DisplayRole). toString ();
+	   fprintf (stderr, "Ding ding ding %s\n",  a. toLatin1 (). data () );
 
 	switch (my_ficHandler -> kindofService (a)) {
 	   case AUDIO_SERVICE:
