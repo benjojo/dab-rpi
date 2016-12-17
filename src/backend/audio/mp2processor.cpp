@@ -29,6 +29,13 @@
 #include	"mp2processor.h"
 #include	"gui.h"
 
+#include 	<iostream>
+#include <iostream>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #ifdef _MSC_VER
     #define FASTCALL __fastcall
 #else
@@ -224,6 +231,14 @@ struct quantizer_spec quantizer_table [17] = {
 int16_t	i, j;
 int16_t *nPtr = &N [0][0];
 
+	bdumping = true;
+
+	// ben edit: open a dump file to write raw MP4/MP2 into file
+	if ((bdumpfd = open("/tmp/mp2-dump", O_WRONLY)) < 0) {
+		fprintf(stderr, "Failed to open MP2 dump FIFO\n");
+		bdumping = false;
+	}
+
 	// compute N[i][j]
 	for (i = 0;  i < 64;  i ++)
 	   for (j = 0;  j < 32;  ++j)
@@ -381,6 +396,11 @@ int32_t table_idx;
 	   numberofFrames	= 0;
 	   errorFrames		= 0;
 	}
+
+	if (bdumping) {
+		write(bdumpfd, frame, MP2bitCount/8);
+	}
+
 
 // check for valid header: syncword OK, MPEG-Audio Layer 2
 	if (( frame[0]         != 0xFF)   // no valid syncword?

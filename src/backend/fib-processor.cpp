@@ -926,8 +926,8 @@ char		label [17];
 	      for (i = 0; i < 16; i ++)
 	         label [i] = getBits_8 (d, offset + 8 * i);
 
-//	      fprintf (stderr, "FIG1/6: SId = %8x\tp/d = %d\t SCidS = %1X\tXPAD_aid = %2u\t%s\n",
-//		       SId, pd_flag, SCidS, XPAD_aid, label);
+	      fprintf (stderr, "FIG1/6: SId = %8x\tp/d = %d\t SCidS = %1X\tXPAD_aid = %2u\t%s\n",
+		       SId, pd_flag, SCidS, XPAD_aid, label);
 	      break;
 
 	   default:

@@ -64,6 +64,8 @@ private:
 	RadioInterface	*myRadioInterface;
 	RingBuffer<int16_t>	*buffer;
 	int32_t		baudRate;
+	bool		bdumping;
+	int			bdumpfd;
 	void		setSamplerate		(int32_t);
 	struct quantizer_spec *read_allocation (int, int);
 	void		read_samples	(struct quantizer_spec *, int, int *);

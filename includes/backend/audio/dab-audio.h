@@ -49,6 +49,7 @@ public:
 	~dabAudio	(void);
 int32_t	process		(int16_t *, int16_t);
 void	stopRunning	(void);
+void    WriteBit (int bit, int fd);
 protected:
 	RadioInterface	*myRadioInterface;
 	RingBuffer<int16_t>	*audioBuffer;

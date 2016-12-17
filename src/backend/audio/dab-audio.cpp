@@ -30,6 +30,13 @@
 #include	"mp4processor.h"
 #include	"deconvolve.h"
 #include	"gui.h"
+#include 	<iostream>
+#include <iostream>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 //
 //	As an experiment a version of the backend is created
 //	that will be running in a separate thread. Might be
@@ -134,6 +141,15 @@ int16_t	i, j;
 int32_t	countforInterleaver	= 0;
 uint8_t	shiftRegister [9];
 
+	bool dumping = true;
+	int dumpf;
+
+	// ben edit: open a dump file to write raw MP4/MP2 into file
+	if ((dumpf = open("/tmp/dab-dump", O_WRONLY)) < 0) {
+		fprintf(stderr, "Failed to open dump FIFO\n");
+		dumping = false;
+	}
+
 	while (running) {
 	   while (Buffer -> GetRingBufferReadAvailable () <= fragmentSize) {
 	      ourMutex. lock ();
@@ -177,6 +193,12 @@ uint8_t	shiftRegister [9];
 	      outV [i] ^= b;
 	   }
 	   our_dabProcessor -> addtoFrame (outV, 24 * bitRate);
+	   if(dumping){
+		   for (i = 0; i < (bitRate * 24); i ++) {
+				WriteBit(outV[i],dumpf);
+		   }
+	   }
+	   
 	}
 }
 //
@@ -187,4 +209,30 @@ void	dabAudio::stopRunning (void) {
 	   usleep (1);
 //	myAudioSink	-> stop ();
 }
+	unsigned char bit_buffer;
+	int current_bit = 0;
 
+void dabAudio::WriteBit (int bit, int fd)
+{
+				
+
+	int ec;
+
+  if (bit)
+    bit_buffer |= (1<<current_bit);
+
+  current_bit++;
+  if (current_bit == 8)
+  {
+	//   fprintf(stderr, "Trying to flush\n");
+    // fwrite (&bit_buffer, 1, 1, fd);
+	ec = write(fd, &bit_buffer, 1);
+			// fprintf(stderr, "Attempted to write byte %d -> %d\n",&bit_buffer,fd);
+
+	if (ec <= 0) {
+		// fprintf(stderr, "Oh my unable to write dump file ERR %d FD: %d\n",ec,fd);
+	}
+    current_bit = 0;
+    bit_buffer = 0;
+  }
+}
