@@ -34,6 +34,18 @@
 #include	"charsets.h"
 #include	"pad-handler.h"
 #include	"rs1.h"
+
+#include 	<iostream>
+#include <iostream>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+
+#include <arpa/inet.h>
+#include <sys/socket.h>
+
 /**
   *	\brief simple, inline coded, crc checker
   */
@@ -259,23 +271,23 @@ int32_t		tmp;
 	   uint8_t theAU [2 * 960 + 10];	// sure, large enough
 	   memset (theAU, 0, sizeof (theAU));
 
-///	sanity check 1
+		///	sanity check 1
 	   if (au_start [i + 1] < au_start [i]) {
-//	cannot happen, all errors were corrected
+		//	cannot happen, all errors were corrected
 	      fprintf (stderr, "%d %d\n", au_start [i + 1], au_start [i]);
 	      return false;
 	   }
 
 	   aac_frame_length = au_start [i + 1] - au_start [i] - 2;
 	   if ((aac_frame_length >= 2 * 960) || (aac_frame_length < 0)) {
-//
-//	cannot happen, all errors were corrected
+
+		//	cannot happen, all errors were corrected
 	      fprintf (stderr, "serious error in frame 6 (%d) (%d) frame_length = %d\n",
 	                                        ++au_errors,
 	                                        au_count, aac_frame_length);
 	      return false;
 	   }
-///	but first the crc check
+	   ///	but first the crc check
 	   if (dabPlus_crc (&outVector [au_start [i]],
 	                    aac_frame_length)) {
 	      memcpy (theAU,
@@ -296,12 +308,152 @@ int32_t		tmp;
 	      for (j = aac_frame_length;
 	           j < aac_frame_length + 10; j ++)
 	         theAU [j] = 0;
+if(bfirstrun) {
+	bfirstrun = false;
+	fprintf(stderr,"opening a cheeky /tmp/mp4-dump with the bois\n");
+	if ((bdumpfd = open("/tmp/mp4-dump", O_WRONLY)) < 0) {
+			fprintf(stderr, "Failed to open MP4 dump FIFO\n");
+	}
+}
+
+bdumping = true;
+if (bdumpfd == 0) {
+bdumping = false;
+	fprintf(stderr,"Attempting to open /tmp/mp4-dump\n");
+
+if ((bdumpfd = open("/tmp/mp4-dump", O_WRONLY)) < 0) {
+	fprintf(stderr, "Failed to open MP4 dump FIFO\n");
+}
+
+}
+// fprintf(stderr, "Am I working?? %d\n",aac_frame_length);
+	
+	if(budpsockfd == 0) {
+		budpsockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	}
 	      tmp = aacDecoder. MP42PCM (dacRate,
 	                                 sbrFlag,
 	                                 mpegSurround,
 	                                 aacChannelMode,
 	                                 theAU,
 	                                 aac_frame_length);
+	if (bdumping) {
+
+	      uint8_t fileBuffer [1024];
+
+	      buildHeader (aac_frame_length, dacRate,sbrFlag,aacChannelMode,psFlag, fileBuffer);
+	      memcpy (&fileBuffer [7], 
+	              &outVector [au_start [i]],
+	              aac_frame_length);
+
+
+
+              write(bdumpfd, theAU, aac_frame_length);
+	}
+
+	if (budpsockfd != -1 && budpsockfd != 0) {
+		struct sockaddr_in si_other;
+		memset((char *) &si_other, 0, sizeof(si_other));
+		si_other.sin_family = AF_INET;
+		si_other.sin_port = htons(1337);
+
+		inet_aton("127.0.0.1" , &si_other.sin_addr);
+		int slen = sizeof(si_other);
+
+
+		uint8_t fileBuffer [1024];
+
+
+				struct adts_fixed_header {
+					unsigned                     : 4;
+					unsigned home                : 1;
+					unsigned orig                : 1;
+					unsigned channel_config      : 3;
+					unsigned private_bit         : 1;
+					unsigned sampling_freq_index : 4;
+					unsigned profile             : 2;
+					unsigned protection_absent   : 1;
+					unsigned layer               : 2;
+					unsigned id                  : 1;
+					unsigned syncword            : 12;
+				} fh;
+				struct adts_variable_header {
+					unsigned                            : 4;
+					unsigned num_raw_data_blks_in_frame : 2;
+					unsigned adts_buffer_fullness       : 11;
+					unsigned frame_length               : 13;
+					unsigned copyright_id_start         : 1;
+					unsigned copyright_id_bit           : 1;
+				} vh;
+				/* 32k 16k 48k 24k */
+				const unsigned short samptab[] = {0x5, 0x8, 0x3, 0x6};
+
+				fh. syncword = 0xfff;
+				fh. id = 0;
+				fh. layer = 0;
+				fh. protection_absent = 1;
+				fh. profile = 0;
+				fh. sampling_freq_index = samptab [dacRate << 1 | sbrFlag];
+
+				fh. private_bit = 0;
+				switch (0) {
+				default:
+					fprintf (stderr, "Unrecognized mpeg_surround_config ignored\n");
+			//	not nice, but deliberate: fall through
+				case 0:
+					if (sbrFlag && !aacChannelMode && psFlag)
+						fh. channel_config = 2; /* Parametric stereo */
+					else
+						fh. channel_config = 1 << aacChannelMode ;
+					break;
+
+				case 1:
+					fh. channel_config = 6;
+					break;
+				}
+
+				fh. orig = 0;
+				fh. home = 0;
+				vh. copyright_id_bit = 0;
+				vh. copyright_id_start = 0;
+				vh. frame_length = aac_frame_length + 7;  /* Includes header length */
+				vh. adts_buffer_fullness = 1999;
+				vh. num_raw_data_blks_in_frame = 0;
+				fileBuffer [0]	= fh. syncword >> 4;
+				fileBuffer [1]	= (fh. syncword & 0xf) << 4;
+				fileBuffer [1]	|= fh. id << 3;
+				fileBuffer [1]	|= fh. layer << 1;
+				fileBuffer [1]	|= fh. protection_absent;
+					fileBuffer [2]	= fh. profile << 6;
+				fileBuffer [2]	|= fh. sampling_freq_index << 2;
+				fileBuffer [2]	|= fh. private_bit << 1;
+				fileBuffer [2]	|= (fh. channel_config & 0x4);
+				fileBuffer [3]	= (fh. channel_config & 0x3) << 6;
+				fileBuffer [3]	|= fh. orig << 5;
+				fileBuffer [3]	|= fh. home << 4;
+				fileBuffer [3]	|= vh. copyright_id_bit << 3;
+				fileBuffer [3]	|= vh. copyright_id_start << 2;
+				fileBuffer [3]	|= (vh. frame_length >> 11) & 0x3;
+				fileBuffer [4]	= (vh. frame_length >> 3) & 0xff;
+				fileBuffer [5]	= (vh. frame_length & 0x7) << 5;
+				fileBuffer [5]	|= vh. adts_buffer_fullness >> 6;
+				fileBuffer [6]	= (vh. adts_buffer_fullness & 0x3f) << 2;
+				fileBuffer [6]	|= vh. num_raw_data_blks_in_frame;
+
+
+		// buildHeader (aac_frame_length, dacRate,sbrFlag,aacChannelMode,psFlag, &fileBuffer[0]);
+		memcpy (&fileBuffer [7],
+				&outVector [au_start [i]],
+				aac_frame_length);
+
+		// fileBuffer[0] = 0xDE;
+		// fileBuffer[1] = 0xAD;
+		// fileBuffer[2] = 0xBE;
+		// fileBuffer[3] = 0xEF;
+		sendto(budpsockfd, &fileBuffer[0], aac_frame_length + 7 , 0 , (struct sockaddr *) &si_other, slen);
+	}
+
+
 	      if (tmp == 0)
 	         frameErrors ++;
 	      else
@@ -319,3 +471,87 @@ int32_t		tmp;
 	return true;
 }
 
+
+
+void	mp4Processor::buildHeader (int16_t framelen,
+uint8_t		dacRate,
+uint8_t		sbrFlag,
+uint8_t		aacChannelMode,
+uint8_t		psFlag,
+	                           uint8_t *header) {
+	struct adts_fixed_header {
+		unsigned                     : 4;
+		unsigned home                : 1;
+		unsigned orig                : 1;
+		unsigned channel_config      : 3;
+		unsigned private_bit         : 1;
+		unsigned sampling_freq_index : 4;
+		unsigned profile             : 2;
+		unsigned protection_absent   : 1;
+		unsigned layer               : 2;
+		unsigned id                  : 1;
+		unsigned syncword            : 12;
+	} fh;
+	struct adts_variable_header {
+		unsigned                            : 4;
+		unsigned num_raw_data_blks_in_frame : 2;
+		unsigned adts_buffer_fullness       : 11;
+		unsigned frame_length               : 13;
+		unsigned copyright_id_start         : 1;
+		unsigned copyright_id_bit           : 1;
+	} vh;
+	/* 32k 16k 48k 24k */
+	const unsigned short samptab[] = {0x5, 0x8, 0x3, 0x6};
+
+	fh. syncword = 0xfff;
+	fh. id = 0;
+	fh. layer = 0;
+	fh. protection_absent = 1;
+	fh. profile = 0;
+	fh. sampling_freq_index = samptab [dacRate << 1 | sbrFlag];
+
+	fh. private_bit = 0;
+	switch (0) {
+	   default:
+	      fprintf (stderr, "Unrecognized mpeg_surround_config ignored\n");
+//	not nice, but deliberate: fall through
+	   case 0:
+	      if (sbrFlag && !aacChannelMode && psFlag)
+	         fh. channel_config = 2; /* Parametric stereo */
+	      else
+	         fh. channel_config = 1 << aacChannelMode ;
+	      break;
+
+	   case 1:
+	      fh. channel_config = 6;
+	      break;
+	}
+
+	fh. orig = 0;
+	fh. home = 0;
+	vh. copyright_id_bit = 0;
+	vh. copyright_id_start = 0;
+	vh. frame_length = framelen + 7;  /* Includes header length */
+	vh. adts_buffer_fullness = 1999;
+	vh. num_raw_data_blks_in_frame = 0;
+	header [0]	= fh. syncword >> 4;
+	header [1]	= (fh. syncword & 0xf) << 4;
+	header [1]	|= fh. id << 3;
+	header [1]	|= fh. layer << 1;
+	header [1]	|= fh. protection_absent;
+        header [2]	= fh. profile << 6;
+	header [2]	|= fh. sampling_freq_index << 2;
+	header [2]	|= fh. private_bit << 1;
+	header [2]	|= (fh. channel_config & 0x4);
+	header [3]	= (fh. channel_config & 0x3) << 6;
+	header [3]	|= fh. orig << 5;
+	header [3]	|= fh. home << 4;
+	header [3]	|= vh. copyright_id_bit << 3;
+	header [3]	|= vh. copyright_id_start << 2;
+	header [3]	|= (vh. frame_length >> 11) & 0x3;
+	header [4]	= (vh. frame_length >> 3) & 0xff;
+	header [5]	= (vh. frame_length & 0x7) << 5;
+	header [5]	|= vh. adts_buffer_fullness >> 6;
+	header [6]	= (vh. adts_buffer_fullness & 0x3f) << 2;
+	header [6]	|= vh. num_raw_data_blks_in_frame;
+}

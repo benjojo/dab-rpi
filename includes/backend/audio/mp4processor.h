@@ -52,7 +52,13 @@ public:
 private:
 	RadioInterface	*myRadioInterface;
 	padHandler	my_padhandler;
+
+	bool		bdumping;
+	bool		bfirstrun;
+	int			bdumpfd;
+	int			budpsockfd;
 	bool		processSuperframe (uint8_t [], int16_t);
+	void		buildHeader (int16_t, uint8_t,uint8_t,uint8_t,uint8_t,uint8_t*);
 	int16_t		superFramesize;
 	int16_t		blockFillIndex;
 	int16_t		blocksInBuffer;
@@ -80,6 +86,15 @@ signals:
 	void		showLabel			(QString);
 	void		isStereo			(bool);
 };
+
+typedef struct {
+        int rfa;
+        int dacRate;
+        int sbrFlag;
+        int psFlag;
+        int aacChannelMode;
+        int mpegSurround;
+} stream_parms;
 
 #endif
 
